@@ -9,8 +9,7 @@
 //    débit par IP pour rendre le brute-force du code impraticable, et on
 //    valide strictement son format avant toute lecture/écriture.
 
-const { getStore } = require('@netlify/blobs');
-const { getClientIp, checkRateLimit, rateLimitResponse } = require('./_rate-limit');
+const { getClientIp, checkRateLimit, rateLimitResponse, getConfiguredStore } = require('./_rate-limit');
 
 const CODE_RE = /^[A-Z0-9]{4,8}$/;
 
@@ -27,7 +26,7 @@ exports.handler = async function (event) {
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   try {
-    const store = getStore('medidoc-familles');
+    const store = getConfiguredStore('medidoc-familles');
 
     // ─── GET : récupérer tous les documents d'un code famille ───
     if (event.httpMethod === 'GET') {
