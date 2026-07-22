@@ -1,0 +1,2070 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta name="theme-color" content="#0D47A1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MediDoc — Mes documents médicaux</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { width: 100%; -webkit-text-size-adjust: 100%; }
+:root {
+  --primary: #0D47A1;
+  --primary-light: #1565C0;
+  --accent: #00ACC1;
+  --bg: #EEF3FA;
+  --card: #ffffff;
+  --text: #10233F;
+  --muted: #64748B;
+  --border: #E2E8F0;
+  --danger: #E53935;
+  --radius: 16px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); width: 100%; overflow-x: hidden; min-height: 100vh; padding-bottom: 84px; }
+
+/* Empêche le menu "sélectionner le texte / rechercher sur Google" au tap
+   prolongé sur les éléments interactifs (boutons, cartes, vignettes...) */
+button, .add-btn, .doc-card, .card-quick, .filter-chip, .cat-pill, .nav-item, .share-opt, label[for] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* ══ Header ══ */
+.app-header { background: linear-gradient(135deg, var(--primary), #082D6B); color: #fff; padding: 20px 18px 26px; position: sticky; top: 0; z-index: 50; }
+.app-header h1 { font-size: 19px; font-weight: 900; display: flex; align-items: center; gap: 8px; }
+.app-header .sub { font-size: 12px; color: #B7CCF0; margin-top: 3px; }
+.stats-row { display: flex; gap: 10px; margin-top: 14px; }
+.stat-chip { flex: 1; background: rgba(255,255,255,0.12); border-radius: 12px; padding: 10px; text-align: center; }
+.stat-chip .n { font-size: 18px; font-weight: 900; }
+.stat-chip .l { font-size: 9.5px; color: #C7D9F5; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+/* ══ Contenu ══ */
+.view { padding: 16px; display: none; animation: fadeIn 0.2s ease; }
+.view.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+
+.section-title { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 18px 0 10px; }
+.section-title:first-child { margin-top: 0; }
+
+/* ══ Ajouter ══ */
+.add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
+.add-btn { background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 24px 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; box-shadow: 0 2px 10px rgba(13,71,161,0.06); }
+.add-btn .ic { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-light), var(--primary)); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.add-btn span.label { font-size: 13px; font-weight: 700; color: var(--text); }
+.add-btn span.hint { font-size: 10.5px; color: var(--muted); text-align: center; }
+
+.cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.cat-pill { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 700; color: var(--muted); text-align: center; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; transition: transform 0.1s ease; }
+.cat-pill:active { transform: scale(0.94); background: #EAF1FB; }
+.cat-pill .ic { font-size: 18px; }
+
+/* ══ Zone d'analyse ══ */
+.analyze-box { background: var(--card); border-radius: var(--radius); padding: 16px; margin-top: 14px; box-shadow: 0 2px 12px rgba(13,71,161,0.08); }
+.analyze-preview { width: 100%; max-height: 260px; object-fit: contain; border-radius: 12px; background: #f2f5fa; margin-bottom: 12px; }
+.analyze-status { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 12px; }
+.spinner { width: 18px; height: 18px; border: 2.5px solid #cfe0fa; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.field { margin-bottom: 12px; }
+.field label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 5px; }
+.field select, .field input[type=text], .field input[type=date], .field input[type=password] { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1.5px solid var(--border); font-size: 14px; background: #fff; color: var(--text); }
+
+.btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-size: 14.5px; font-weight: 800; cursor: pointer; }
+.btn-primary { background: linear-gradient(135deg, var(--primary-light), var(--primary)); color: #fff; }
+.btn-ghost { background: #fff; color: var(--muted); border: 1.5px solid var(--border); margin-top: 8px; }
+
+/* ══ Documents / liste ══ */
+.filter-row { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 4px; margin-bottom: 14px; }
+.filter-chip { flex: 0 0 auto; padding: 8px 14px; border-radius: 20px; background: #fff; border: 1.5px solid var(--border); font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; cursor: pointer; }
+.filter-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.doc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+.cards-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px; }
+.card-quick { border-radius: 14px; overflow: hidden; position: relative; min-height: 88px; display: flex; align-items: flex-end; cursor: pointer; box-shadow: 0 2px 10px rgba(13,71,161,0.1); }
+.card-quick.filled { background-size: cover; background-position: center; }
+.card-quick.empty { background: #fff; border: 1.5px dashed var(--border); align-items: center; justify-content: center; flex-direction: column; gap: 4px; }
+.card-quick.empty .plus { font-size: 20px; color: var(--muted); }
+.card-quick .overlay { width: 100%; padding: 8px 10px; background: linear-gradient(to top, rgba(0,0,0,0.65), transparent); color: #fff; font-size: 11px; font-weight: 800; }
+.card-quick.empty .lbl { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+.doc-card { background: var(--card); border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(13,71,161,0.07); cursor: pointer; }
+.doc-thumb { width: 100%; height: 120px; object-fit: cover; background: #eef2f8; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+.doc-info { padding: 8px 10px 10px; }
+.doc-cat { font-size: 9px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px; }
+.doc-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
+.empty-state .ic { font-size: 42px; margin-bottom: 10px; }
+.empty-state p { font-size: 13px; line-height: 1.5; }
+
+/* ══ Modal visionneuse ══ */
+.modal { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(8,20,40,0.92); }
+.modal.open { display: flex; flex-direction: column; }
+.modal-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; color: #fff; }
+.modal-top button { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; }
+.modal-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; overflow: auto; }
+.modal-body img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+.modal-body iframe { width: 100%; height: 100%; border: none; border-radius: 10px; background: #fff; }
+.modal-body .no-preview { color: #fff; text-align: center; font-size: 13px; }
+.modal-body .no-preview .ic { font-size: 54px; display: block; margin-bottom: 14px; }
+.modal-body .no-preview .titre { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+.modal-body .no-preview .sous { color: #B7CCF0; font-size: 12px; margin-bottom: 20px; }
+.modal-body .no-preview button { padding: 13px 26px; border-radius: 12px; border: none; background: linear-gradient(135deg,var(--primary-light),var(--primary)); color: #fff; font-weight: 800; font-size: 14px; cursor: pointer; }
+
+/* Tableau d'évolution des bilans sanguins : défilement horizontal sur mobile,
+   1ère colonne (nom du paramètre) fixée pour rester lisible en scrollant. */
+.evo-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1.5px solid var(--border); border-radius: 12px; }
+.evo-table { border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
+.evo-table th, .evo-table td { padding: 9px 10px; text-align: center; border-bottom: 1px solid var(--border); }
+.evo-table th { background: #F5F8FC; font-weight: 800; color: var(--text); font-size: 11px; }
+.evo-table td:first-child, .evo-table th:first-child { text-align: left; position: sticky; left: 0; background: #fff; font-weight: 700; z-index: 1; box-shadow: 1px 0 0 var(--border); }
+.evo-table th:first-child { background: #F5F8FC; }
+.evo-val-haut { color: #B91C1C; font-weight: 800; }
+.evo-val-bas { color: #B45309; font-weight: 800; }
+.evo-val-ok { color: #16A34A; font-weight: 700; }
+.evo-arrow { font-size: 10px; margin-left: 2px; opacity: 0.7; }
+#viewerPdfPages { display: none; width: 100%; overflow-y: auto; height: 100%; }
+#viewerPdfPages canvas { width: 100%; height: auto; display: block; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+#viewerPdfPages .pdf-status { color: #fff; text-align: center; padding: 30px; font-size: 13px; }
+.modal-footer { padding: 14px 16px 20px; display: flex; gap: 10px; }
+.modal-footer button { flex: 1; padding: 13px; border-radius: 12px; border: none; font-weight: 800; font-size: 13px; cursor: pointer; }
+
+/* ══ Nav bas ══ */
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; display: flex; border-top: 1px solid var(--border); padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index: 100; box-shadow: 0 -4px 16px rgba(13,71,161,0.08); }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border: none; background: none; color: var(--muted); font-size: 9.5px; font-weight: 700; cursor: pointer; }
+.nav-item .ic { font-size: 19px; }
+.nav-item.active { color: var(--primary); }
+
+input[type=file] { display: none; }
+
+/* ══ Interrupteur (switch) ══ */
+.switch { position: relative; display: inline-block; width: 46px; height: 26px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch-slider { position: absolute; cursor: pointer; inset: 0; background: #CBD5E1; border-radius: 26px; transition: 0.2s; }
+.switch-slider::before { content: ""; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+.switch input:checked + .switch-slider { background: var(--primary); }
+.switch input:checked + .switch-slider::before { transform: translateX(20px); }
+
+/* ══ Modal Code Famille ══ */
+.family-gate { position: fixed; inset: 0; z-index: 500; background: linear-gradient(135deg, var(--primary), #082D6B); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.family-gate.hidden { display: none; }
+.family-card { background: #fff; border-radius: 20px; padding: 28px 22px; max-width: 380px; width: 100%; text-align: center; }
+.family-ic { font-size: 46px; margin-bottom: 12px; }
+.family-card h2 { font-size: 19px; font-weight: 900; color: var(--text); margin-bottom: 8px; }
+.family-sub { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 20px; }
+.family-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-size: 14px; font-weight: 800; cursor: pointer; margin-bottom: 10px; }
+.family-btn-primary { background: linear-gradient(135deg, var(--primary-light), var(--primary)); color: #fff; }
+.family-btn-secondary { background: #EAF1FB; color: var(--primary); }
+.family-sep { display: flex; align-items: center; gap: 10px; margin: 14px 0; color: var(--muted); font-size: 11px; }
+.family-sep::before, .family-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.family-label { display: block; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; text-align: left; }
+.family-input { width: 100%; padding: 13px; border-radius: 10px; border: 1.5px solid var(--border); font-size: 16px; text-align: center; letter-spacing: 2px; font-weight: 800; margin-bottom: 10px; box-sizing: border-box; }
+.family-msg { font-size: 12px; color: #B91C1C; min-height: 18px; margin-top: 6px; }
+
+/* Affichage du code famille actuel dans les Réglages */
+.family-code-box { background: linear-gradient(135deg, var(--primary-light), var(--primary)); border-radius: 14px; padding: 16px; text-align: center; margin-bottom: 14px; }
+.family-code-box .lbl { color: #C7D9F5; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.family-code-box .code { color: #fff; font-size: 28px; font-weight: 900; letter-spacing: 4px; }
+
+/* ══ Feuille de partage rapide ══ */
+.share-sheet { display: none; position: fixed; inset: 0; z-index: 250; background: rgba(8,20,40,0.55); align-items: flex-end; justify-content: center; }
+.share-sheet.open { display: flex; }
+.share-sheet-inner { background: #fff; width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
+.share-sheet-title { font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; text-align: center; }
+.share-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+.share-opt { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 14px; border: none; background: #F5F8FC; cursor: pointer; }
+.share-opt .ic { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; }
+.share-opt span.lbl { font-size: 10.5px; font-weight: 700; color: var(--text); }
+.share-cancel { width: 100%; padding: 13px; border-radius: 12px; border: none; background: #F1F5F9; color: var(--muted); font-weight: 800; font-size: 13px; margin-top: 6px; cursor: pointer; }
+
+.spe-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #F5F8FC; border-radius: 10px; }
+.spe-row .spe-label { font-size: 13px; font-weight: 700; color: var(--text); }
+.spe-row .spe-count { font-size: 10px; color: var(--muted); margin-left: 6px; }
+.spe-row button { background: none; border: none; font-size: 15px; cursor: pointer; padding: 4px 6px; color: #B91C1C; }
+.spe-row button:disabled { opacity: 0.25; cursor: default; }
+
+/* ══ Toast de confirmation ══ */
+.toast { position: fixed; left: 16px; right: 16px; bottom: -100px; z-index: 300; background: #10233F; color: #fff; border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); transition: bottom 0.3s ease; }
+.toast.show { bottom: calc(80px + env(safe-area-inset-bottom)); }
+.toast .toast-ic { font-size: 22px; min-width: 26px; }
+.toast .toast-thumb { width: 40px; height: 40px; min-width: 40px; border-radius: 8px; object-fit: cover; background: #1E3A5F; }
+.toast .toast-text { flex: 1; font-size: 12.5px; line-height: 1.4; }
+.toast .toast-text b { display: block; font-size: 13px; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="app-header">
+  <h1>🩺 MediDoc</h1>
+  <div class="sub">Vos documents médicaux, classés automatiquement</div>
+  <div class="stats-row">
+    <div class="stat-chip"><div class="n" id="statTotal">0</div><div class="l">Documents</div></div>
+    <div class="stat-chip"><div class="n" id="statCategories">0</div><div class="l">Catégories</div></div>
+    <div class="stat-chip"><div class="n" id="statMois">0</div><div class="l">Ce mois-ci</div></div>
+  </div>
+</div>
+
+<!-- ══ VUE : AJOUTER ══ -->
+<div class="view active" id="view-ajouter">
+  <div class="section-title">Accès rapide</div>
+  <div class="filter-row" id="accueilPersonneRow"></div>
+  <button class="btn btn-primary" style="margin:2px 0 8px" onclick="ouvrirEvolution()">📊 Voir l'évolution des bilans</button>
+  <button class="btn btn-ghost" style="margin-bottom:8px" onclick="ajoutRapideCategorie('derivation')">🔧 Ajouter un document Dérivation</button>
+  <button class="btn btn-ghost" style="margin-bottom:8px" onclick="voirDocumentsCategorie('derivation')">📂 Voir mes documents Dérivation</button>
+  <button class="btn btn-ghost" style="margin-bottom:8px" onclick="voirDocumentsSpecialite('neurologue')">⚡ Voir tous les documents Neurologue</button>
+  <div class="filter-row" id="accueilLiensRow"></div>
+  <div id="accueilRefDerivation" style="display:none;padding:12px 14px;background:#F5F8FC;border-radius:10px;margin-bottom:16px;cursor:pointer" onclick="goToView('reglages')"></div>
+  <div id="accueilStatutCle" style="font-size:12px;font-weight:700;margin-bottom:16px;cursor:pointer" onclick="goToView('reglages')"></div>
+
+  <div class="section-title">Ajouter un document</div>
+  <div class="add-grid">
+    <div class="add-btn" onclick="declencherInput('inputCamera')">
+      <div class="ic">📷</div>
+      <span class="label">Prendre une photo</span>
+      <span class="hint">Radio, ordonnance, résultat…</span>
+    </div>
+    <div class="add-btn" onclick="declencherInput('inputFichier')">
+      <div class="ic">📁</div>
+      <span class="label">Importer un fichier</span>
+      <span class="hint">Photo ou PDF existant</span>
+    </div>
+    <input type="file" id="inputCamera" accept="image/*" capture="environment">
+    <input type="file" id="inputFichier" accept="*/*">
+  </div>
+
+  <div class="section-title">Catégories reconnues automatiquement</div>
+  <div class="cat-grid" id="catGridPreview"></div>
+  <div class="cat-grid" id="specialiteGridPreview" style="margin-top:8px"></div>
+
+  <div class="analyze-box" id="analyzeBox" style="display:none">
+    <img id="analyzePreview" class="analyze-preview" alt="">
+    <div class="analyze-status" id="analyzeStatus"><div class="spinner"></div> Analyse en cours…</div>
+
+    <div id="analyzeForm" style="display:none">
+      <div class="field">
+        <label>Personne</label>
+        <select id="fieldPersonne">
+          <option value="madame">👩 Madame</option>
+          <option value="monsieur">👨 Monsieur</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Catégorie détectée</label>
+        <select id="fieldCategorie" onchange="toggleSpecialiteField()"></select>
+      </div>
+      <div class="field" id="fieldSpecialiteBox" style="display:none">
+        <label id="fieldSpecialiteLabel">Spécialité</label>
+        <select id="fieldSpecialite"></select>
+      </div>
+      <div class="field" id="fieldTypeCrBox" style="display:none">
+        <label>Type d'examen</label>
+        <select id="fieldTypeCr"></select>
+      </div>
+      <div class="field">
+        <label>Titre du document</label>
+        <input type="text" id="fieldTitre" placeholder="Ex : IRM genou droit">
+      </div>
+      <div class="field">
+        <label>Date de l'examen</label>
+        <input type="date" id="fieldDate">
+      </div>
+      <button class="btn btn-primary" onclick="enregistrerDocument()">✅ Enregistrer</button>
+      <button class="btn btn-ghost" onclick="annulerAjout()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VUE : DOCUMENTS ══ -->
+<div class="view" id="view-documents">
+  <div class="section-title">Mes cartes</div>
+  <div class="cards-quick" id="cardsQuick"></div>
+
+  <div class="section-title">Mes documents</div>
+  <div id="filtreSpecialiteBanner" style="display:none"></div>
+  <div class="filter-row" id="personneRow"></div>
+  <div class="filter-row" id="filterRow"></div>
+  <div class="filter-row" id="specialiteRow" style="display:none;margin-top:-6px"></div>
+  <div id="evolutionBtnBox" style="display:none;margin:-4px 0 10px">
+    <button class="btn btn-primary" onclick="ouvrirEvolution()">📊 Voir l'évolution des résultats</button>
+  </div>
+  <div class="doc-grid" id="docGrid"></div>
+  <div class="empty-state" id="emptyState" style="display:none">
+    <div class="ic">🗂️</div>
+    <p>Aucun document pour l'instant.<br>Ajoutez votre première photo ou fichier.</p>
+  </div>
+</div>
+
+<!-- ══ VUE : RECHERCHE ══ -->
+<div class="view" id="view-recherche">
+  <div class="section-title">Rechercher</div>
+  <div class="field"><input type="text" id="searchInput" placeholder="Titre, catégorie…" oninput="renderRecherche()"></div>
+  <div class="doc-grid" id="searchGrid"></div>
+</div>
+
+<!-- ══ VUE : RÉGLAGES ══ -->
+<div class="view" id="view-reglages">
+  <div class="section-title">Réglages</div>
+
+  <div class="analyze-box" style="margin-bottom:14px">
+    <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px">🔑 Scan IA — clé API Claude</label>
+    <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">Permet de classer automatiquement vos documents même si l'app est hébergée sur GitHub Pages (sans fonction serveur Netlify). La clé est envoyée directement depuis votre téléphone vers Anthropic et n'est stockée que sur cet appareil — ne la partagez pas et ne l'utilisez pas sur un appareil qui n'est pas le vôtre.</p>
+    <div class="field">
+      <label>Clé API (commence par sk-ant-...)</label>
+      <input type="password" id="cleApiClaudeInput" placeholder="sk-ant-...">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="enregistrerCleApiClaude()">💾 Enregistrer</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="supprimerCleApiClaude()">🗑️ Retirer</button>
+    </div>
+    <div id="cleApiClaudeStatut" style="font-size:12px;font-weight:700;margin-top:10px"></div>
+  </div>
+
+  <div class="analyze-box" style="margin-bottom:14px">
+    <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px">🛡️ Sauvegarde automatique</label>
+    <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">Chaque nouveau document est automatiquement copié dans votre dossier "Téléchargements" — une protection en cas de perte du stockage de l'app (cache vidé, réinstallation...).</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#F5F8FC;border-radius:10px">
+      <span style="font-size:13px;font-weight:700;color:var(--text)">Activée</span>
+      <label class="switch">
+        <input type="checkbox" id="sauvegardeAutoToggle" onchange="toggleSauvegardeAuto()">
+        <span class="switch-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="analyze-box" style="margin-bottom:14px">
+    <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px">🔧 Référence de dérivation (valve/shunt)</label>
+    <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">Numéro de référence du dispositif implanté, à garder sous la main (ex. pour les urgences ou un nouveau spécialiste).</p>
+    <div class="field">
+      <label>👩 Référence — Madame</label>
+      <input type="text" id="refDerivationMadame" placeholder="Ex : Codman Hakim 90 cm H2O — S/N 123456">
+    </div>
+    <div class="field">
+      <label>👨 Référence — Monsieur</label>
+      <input type="text" id="refDerivationMonsieur" placeholder="Ex : Codman Hakim 90 cm H2O — S/N 123456">
+    </div>
+    <button class="btn btn-primary" onclick="enregistrerRefDerivation()">💾 Enregistrer</button>
+  </div>
+
+  <div class="analyze-box">
+    <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:10px">Spécialités des ordonnances</label>
+    <div id="specialitesList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="nouvelleSpecialiteInput" placeholder="Ex : Neurologue" style="flex:1;padding:11px 12px;border-radius:10px;border:1.5px solid var(--border);font-size:14px">
+      <button onclick="ajouterSpecialite()" style="padding:0 18px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--primary-light),var(--primary));color:#fff;font-weight:800;font-size:20px;cursor:pointer">➕</button>
+    </div>
+  </div>
+
+  <div class="analyze-box">
+    <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px">🔗 Mes liens utiles</label>
+    <p style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">Accès direct aux portails en ligne de vos praticiens/centres d'imagerie (résultats, dossier patient...).</p>
+    <div id="liensList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <div class="field">
+      <label>Nom</label>
+      <input type="text" id="nouveauLienNom" placeholder="Ex : Neurologue Dr Martin">
+    </div>
+    <div class="field">
+      <label>Lien</label>
+      <input type="text" id="nouveauLienUrl" placeholder="https://...">
+    </div>
+    <button class="btn btn-primary" onclick="ajouterLien()">➕ Ajouter ce lien</button>
+  </div>
+
+  <div class="analyze-box">
+    <div class="field">
+      <label>Sauvegarde</label>
+      <button class="btn btn-primary" onclick="exporterJSON()">💾 Exporter une sauvegarde (JSON)</button>
+      <button class="btn btn-ghost" onclick="declencherInput('inputImportJSON')" style="margin-top:8px">📥 Importer une sauvegarde (JSON)</button>
+      <button class="btn btn-ghost" onclick="exporterToutesDonnees()" style="margin-top:8px">⬇️ Exporter en ZIP (fichiers individuels)</button>
+      <button class="btn btn-ghost" onclick="declencherInput('inputImportZIP')" style="margin-top:8px">📥 Importer un ZIP (fichiers individuels)</button>
+      <input type="file" id="inputImportJSON" accept="application/json,.json" onchange="importerJSON(this.files[0])">
+      <input type="file" id="inputImportZIP" accept="application/zip,.zip" onchange="importerZIP(this.files[0])">
+    </div>
+    <div class="field" style="margin-top:14px">
+      <label>Zone dangereuse</label>
+      <button class="btn" style="background:#FEE2E2;color:#B91C1C" onclick="viderBase()">🗑️ Supprimer tous les documents</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL VISIONNEUSE ══ -->
+<!-- ══ NOTIFICATION TOAST ══ -->
+<div id="toast" class="toast"></div>
+
+<div class="modal" id="viewerModal">
+  <div class="modal-top">
+    <div id="viewerTitle" style="font-weight:800;font-size:14px"></div>
+    <button onclick="fermerViewer()">✕</button>
+  </div>
+  <div class="modal-body">
+    <img id="viewerImg" alt="">
+    <div id="viewerPdfPages"></div>
+    <div id="viewerNoPreview" class="no-preview" style="display:none">
+      <span class="ic">📄</span>
+      <div class="titre" id="viewerNoPreviewTitre">Document PDF</div>
+      <div class="sous">Téléchargez-le puis ouvrez-le avec votre app PDF (Drive, Adobe...)</div>
+      <button onclick="ouvrirPdfNouvelOnglet()">⬇️ Télécharger pour l'ouvrir</button>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button style="background:#fff;color:var(--text)" onclick="telechargerDocument()">⬇️</button>
+    <button style="background:#fff;color:var(--primary)" onclick="ouvrirEdition()">✏️</button>
+    <button style="background:linear-gradient(135deg,var(--primary-light),var(--primary));color:#fff" onclick="partagerDocument()">📤 Partager</button>
+    <button style="background:#FEE2E2;color:#B91C1C" onclick="supprimerDocumentCourant()">🗑️</button>
+  </div>
+</div>
+
+<!-- ══ MODAL ÉDITION DOCUMENT ══ -->
+<div class="modal" id="editModal">
+  <div class="modal-top">
+    <div style="font-weight:800;font-size:14px">✏️ Modifier le document</div>
+    <button onclick="fermerEdition()">✕</button>
+  </div>
+  <div class="modal-body" style="display:block;align-items:initial;justify-content:initial;padding:18px 16px">
+    <div class="field">
+      <label>Personne</label>
+      <select id="editPersonne">
+        <option value="madame">👩 Madame</option>
+        <option value="monsieur">👨 Monsieur</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Désignation du soin</label>
+      <input type="text" id="editTitre" placeholder="Ex : IRM genou droit">
+    </div>
+    <div class="field">
+      <label>Spécialiste concerné</label>
+      <select id="editSpecialite"></select>
+    </div>
+    <div class="field">
+      <label>Date de l'examen</label>
+      <input type="date" id="editDate">
+    </div>
+    <div class="field">
+      <label>Nom du fichier</label>
+      <input type="text" id="editFileName" placeholder="Ex : irm_genou.pdf">
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button style="background:#fff;color:var(--muted);border:1.5px solid var(--border)" onclick="fermerEdition()">Annuler</button>
+    <button style="background:linear-gradient(135deg,var(--primary-light),var(--primary));color:#fff" onclick="enregistrerEdition()">✅ Enregistrer</button>
+  </div>
+</div>
+
+<!-- ══ MODAL ÉVOLUTION DES BILANS SANGUINS ══ -->
+<div class="modal" id="evolutionModal">
+  <div class="modal-top">
+    <div style="font-weight:800;font-size:14px">📊 Évolution des résultats</div>
+    <button onclick="fermerEvolution()">✕</button>
+  </div>
+  <div class="modal-body" style="display:block;align-items:initial;justify-content:initial;padding:14px">
+    <div id="evolutionContenu"></div>
+  </div>
+  <div class="modal-footer">
+    <button style="background:linear-gradient(135deg,var(--primary-light),var(--primary));color:#fff;width:100%" onclick="fermerEvolution()">Fermer</button>
+  </div>
+</div>
+
+<!-- ══ FEUILLE DE PARTAGE RAPIDE ══ -->
+<div class="share-sheet" id="shareSheet">
+  <div class="share-sheet-inner">
+    <div class="share-sheet-title">Partager le document</div>
+    <div class="share-options">
+      <button class="share-opt" onclick="shareVia('native')">
+        <div class="ic" style="background:linear-gradient(135deg,var(--primary-light),var(--primary))">📤</div>
+        <span class="lbl">Plus d'options</span>
+      </button>
+      <button class="share-opt" onclick="shareVia('whatsapp')">
+        <div class="ic" style="background:#25D366">💬</div>
+        <span class="lbl">WhatsApp</span>
+      </button>
+      <button class="share-opt" onclick="shareVia('email')">
+        <div class="ic" style="background:#EA4335">✉️</div>
+        <span class="lbl">Email</span>
+      </button>
+      <button class="share-opt" onclick="shareVia('sms')">
+        <div class="ic" style="background:#34A853">💭</div>
+        <span class="lbl">SMS</span>
+      </button>
+    </div>
+    <button class="share-cancel" onclick="fermerShareSheet()">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ NAV BAS ══ -->
+<div class="bottom-nav">
+  <button class="nav-item active" data-view="ajouter" onclick="goToView('ajouter')"><div class="ic">➕</div>Ajouter</button>
+  <button class="nav-item" data-view="documents" onclick="goToView('documents')"><div class="ic">🗂️</div>Documents</button>
+  <button class="nav-item" data-view="recherche" onclick="goToView('recherche')"><div class="ic">🔍</div>Recherche</button>
+  <button class="nav-item" data-view="reglages" onclick="goToView('reglages')"><div class="ic">⚙️</div>Réglages</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+//  MediDoc — Classement automatique de documents médicaux
+// ═══════════════════════════════════════════════════════════
+
+// Permet de classer les documents par membre de la famille
+const PERSONNES = {
+  madame:   { label: 'Madame',   icon: '👩' },
+  monsieur: { label: 'Monsieur', icon: '👨' }
+};
+
+const CATEGORIES = {
+  vitale:      { label: 'Carte Vitale',      icon: '🪪' },
+  mutuelle:    { label: 'Mutuelle',          icon: '🛡️' },
+  radio:       { label: 'Radiologie',        icon: '🦴' },
+  irm:         { label: 'IRM',               icon: '🧲' },
+  scanner:     { label: 'Scanner / TDM',     icon: '🌀' },
+  analyse:     { label: 'Analyse de sang',   icon: '🩸' },
+  ordonnance:  { label: 'Ordonnance',        icon: '💊' },
+  compterendu: { label: 'Compte-rendu',      icon: '📋' },
+  echo:        { label: 'Échographie',       icon: '📡' },
+  derivation:  { label: 'Dérivation',        icon: '🔧' },
+  autre:       { label: 'Autre',             icon: '📄' }
+};
+
+// Spécialités utilisées pour classer les ordonnances plus finement
+// Icône propre à chaque spécialité (repli sur 🩺 pour les spécialités ajoutées manuellement)
+const ICONES_SPECIALITE = {
+  traitant: '🩺', rhumatologue: '🦴', gynecologue: '🌸', cardiologue: '❤️',
+  dermatologue: '🧴', ophtalmologue: '👁️', orl: '👂', dentiste: '🦷',
+  orthodontiste: '😬', pediatre: '🧒', psychiatre: '🧠', kine: '🤸',
+  angiologue: '🦵', podologue: '🦶', endocrinologue: '🧬', gastro: '🫃',
+  urologue: '💧', neurologue: '⚡', osteopathe: '👐', allergologue: '🤧',
+  pneumologue: '🫁', nephrologue: '🫘', dieteticien: '🥗', orthopediste: '🦿',
+  autre_spe: '👨‍⚕️'
+};
+function iconeSpecialite(key) {
+  return ICONES_SPECIALITE[key] || '🩺';
+}
+
+const SPECIALITES_PAR_DEFAUT = {
+  traitant:        'Médecin traitant',
+  rhumatologue:    'Rhumatologue',
+  gynecologue:     'Gynécologue',
+  cardiologue:     'Cardiologue',
+  dermatologue:    'Dermatologue',
+  ophtalmologue:   'Ophtalmologue',
+  orl:             'ORL',
+  dentiste:        'Dentiste',
+  orthodontiste:   'Orthodontiste',
+  pediatre:        'Pédiatre',
+  psychiatre:      'Psychiatre',
+  kine:            'Kinésithérapeute',
+  angiologue:      'Angiologue',
+  podologue:       'Podologue',
+  endocrinologue:  'Endocrinologue',
+  gastro:          'Gastro-entérologue',
+  urologue:        'Urologue',
+  neurologue:      'Neurologue',
+  osteopathe:      'Ostéopathe',
+  allergologue:    'Allergologue',
+  pneumologue:     'Pneumologue',
+  nephrologue:     'Néphrologue',
+  dieteticien:     'Diététicien / Nutritionniste',
+  orthopediste:    'Chirurgien orthopédique',
+  autre_spe:       'Autre spécialiste'
+};
+const SPECIALITE_PROTEGEE = 'autre_spe'; // toujours gardée comme repli, non supprimable
+
+// Sous-catégories pour les comptes-rendus (rapport écrit à propos de quel examen)
+const TYPES_COMPTE_RENDU = {
+  irm:      'Compte-rendu IRM',
+  scanner:  'Compte-rendu Scanner',
+  radio:    'Compte-rendu Radio',
+  echo:     'Compte-rendu Échographie',
+  autre_cr: 'Autre compte-rendu'
+};
+const TYPE_CR_PROTEGE = 'autre_cr';
+
+let SPECIALITES = chargerSpecialites();
+
+function chargerSpecialites() {
+  try {
+    const saved = localStorage.getItem('medidoc_specialites');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Ajoute automatiquement les nouvelles spécialités introduites dans une
+      // mise à jour de l'app, sans toucher aux spécialités déjà personnalisées.
+      let modifie = false;
+      Object.entries(SPECIALITES_PAR_DEFAUT).forEach(([cle, label]) => {
+        if (!(cle in parsed)) { parsed[cle] = label; modifie = true; }
+      });
+      if (modifie) localStorage.setItem('medidoc_specialites', JSON.stringify(parsed));
+      // Retrait ponctuel de deux spécialités ajoutées puis retirées sur demande
+      let retire = false;
+      ['sagefemme', 'psychologue'].forEach(cle => {
+        if (cle in parsed) { delete parsed[cle]; retire = true; }
+      });
+      if (retire) localStorage.setItem('medidoc_specialites', JSON.stringify(parsed));
+      return parsed;
+    }
+  } catch (e) {}
+  return { ...SPECIALITES_PAR_DEFAUT };
+}
+function sauvegarderSpecialites() {
+  localStorage.setItem('medidoc_specialites', JSON.stringify(SPECIALITES));
+}
+
+const g = id => document.getElementById(id);
+
+// ─── Base de données locale (IndexedDB) ───
+let db;
+const DB_NAME = 'medidoc_db';
+const STORE = 'documents';
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const database = e.target.result;
+      if (!database.objectStoreNames.contains(STORE)) {
+        const store = database.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('categorie', 'categorie', { unique: false });
+        store.createIndex('dateAjout', 'dateAjout', { unique: false });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = e => reject(e);
+  });
+}
+
+function dbAdd(doc) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).add(doc);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = e => reject(e);
+  });
+}
+function dbUpdate(doc) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).put(doc);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = e => reject(e);
+  });
+}
+function dbGetAll() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = e => reject(e);
+  });
+}
+function dbDelete(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = e => reject(e);
+  });
+}
+function dbClear() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).clear();
+    req.onsuccess = () => resolve();
+    req.onerror = e => reject(e);
+  });
+}
+
+// ─── État en mémoire ───
+let allDocs = [];
+let currentFilter = 'tous';
+let currentPersonne = 'tous';
+let currentSpecialite = 'toutes';
+let filtreSpecialiteGlobal = null; // filtre transversal (toutes catégories) par spécialiste, ex. "voir tout ce qui concerne le neurologue"
+let pendingFile = null;   // fichier en cours d'analyse
+let pendingBase64 = null;
+let pendingResultats = null; // résultats de bilan sanguin extraits par l'IA (si applicable)
+let viewerCurrentId = null;
+let preselectCategorie = null; // catégorie forcée via "Mes cartes" (Vitale/Mutuelle)
+let preselectSpecialite = null; // spécialité forcée via la grille "Spécialités reconnues"
+
+// ─── Navigation entre vues ───
+function goToView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  g('view-' + name).classList.add('active');
+  document.querySelector('.nav-item[data-view="' + name + '"]').classList.add('active');
+  if (name === 'documents') renderDocuments();
+  if (name === 'recherche') renderRecherche();
+  if (name === 'reglages') { renderSpecialitesList(); initSauvegardeAutoToggle(); majStatutCleApiClaude(); renderLiensList(); initRefDerivationInputs(); }
+  if (name === 'ajouter') renderAccesRapideAccueil();
+}
+
+// ─── Init des sélecteurs de catégorie ───
+// ─── Accès rapide en page d'accueil : filtre Madame/Monsieur, évolution
+// des bilans, statut du scan IA ───
+function voirDocumentsSpecialite(spe) {
+  filtreSpecialiteGlobal = spe;
+  goToView('documents');
+}
+function effacerFiltreSpecialiteGlobal() {
+  filtreSpecialiteGlobal = null;
+  renderDocuments();
+}
+
+function filtrerPersonneDepuisAccueil(p) {
+  currentPersonne = p;
+  currentFilter = 'tous';
+  goToView('documents');
+}
+function voirDocumentsCategorie(cat) {
+  currentFilter = cat;
+  currentPersonne = 'tous';
+  currentSpecialite = 'toutes';
+  goToView('documents');
+}
+function renderAccesRapideAccueil() {
+  g('accueilPersonneRow').innerHTML = Object.keys(PERSONNES).map(p =>
+    `<div class="filter-chip" onclick="filtrerPersonneDepuisAccueil('${p}')">${PERSONNES[p].icon} ${PERSONNES[p].label}</div>`
+  ).join('');
+  renderLiensAccueil();
+  renderRefDerivationAccueil();
+
+  const cle = cleApiClaudeStockee();
+  const el = g('accueilStatutCle');
+  el.innerHTML = cle
+    ? `✅ Scan IA activé (…${cle.slice(-4)})`
+    : `⚪ Scan IA non configuré — appuyez pour l'activer dans Réglages`;
+  el.style.color = cle ? '#16A34A' : 'var(--muted)';
+}
+function renderRefDerivationAccueil() {
+  const el = g('accueilRefDerivation');
+  if (!el) return;
+  const lignes = [];
+  if (REF_DERIVATION.madame) lignes.push(`👩 ${REF_DERIVATION.madame}`);
+  if (REF_DERIVATION.monsieur) lignes.push(`👨 ${REF_DERIVATION.monsieur}`);
+  if (lignes.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">🔧 Référence de dérivation</div>` +
+    lignes.map(l => `<div style="font-size:13px;font-weight:700;color:var(--text)">${l}</div>`).join('');
+}
+function renderLiensAccueil() {
+  const el = g('accueilLiensRow');
+  if (!el) return;
+  el.innerHTML = MES_LIENS.map(l => `<div class="filter-chip" onclick="ouvrirLien('${l.id}')">🔗 ${l.nom}</div>`).join('');
+}
+
+function buildCategorySelect(selectEl, selected) {
+  selectEl.innerHTML = Object.entries(CATEGORIES).map(([key, c]) =>
+    `<option value="${key}" ${key === selected ? 'selected' : ''}>${c.icon} ${c.label}</option>`
+  ).join('');
+}
+function buildSpecialiteSelect(selectEl, selected) {
+  selectEl.innerHTML = Object.entries(SPECIALITES).map(([key, label]) =>
+    `<option value="${key}" ${key === selected ? 'selected' : ''}>${label}</option>`
+  ).join('');
+}
+function buildTypeCrSelect(selectEl, selected) {
+  selectEl.innerHTML = Object.entries(TYPES_COMPTE_RENDU).map(([key, label]) =>
+    `<option value="${key}" ${key === selected ? 'selected' : ''}>${label}</option>`
+  ).join('');
+}
+function toggleSpecialiteField() {
+  const cat = g('fieldCategorie').value;
+  const catsAdmin = ['vitale', 'mutuelle'];
+  g('fieldSpecialiteBox').style.display = catsAdmin.includes(cat) ? 'none' : 'block';
+  g('fieldSpecialiteLabel').textContent = cat === 'ordonnance' ? 'Spécialité du prescripteur' : 'Spécialiste concerné (optionnel)';
+  g('fieldTypeCrBox').style.display = cat === 'compterendu' ? 'block' : 'none';
+}
+function renderCatGridPreview() {
+  g('catGridPreview').innerHTML = Object.entries(CATEGORIES).map(([key, c]) =>
+    `<div class="cat-pill" onclick="ajoutRapideCategorie('${key}')"><span class="ic">${c.icon}</span>${c.label}</div>`
+  ).join('');
+  renderSpecialiteGridPreview();
+}
+function renderSpecialiteGridPreview() {
+  g('specialiteGridPreview').innerHTML = Object.entries(SPECIALITES)
+    .filter(([key]) => key !== 'autre_spe')
+    .map(([key, label]) => `<div class="cat-pill" onclick="voirDocumentsSpecialite('${key}')"><span class="ic">${iconeSpecialite(key)}</span>${label}</div>`)
+    .join('');
+}
+
+// ─── Ajout de fichier (photo ou import) ───
+// Déclenche l'input caché programmatiquement plutôt que de compter
+// uniquement sur le comportement natif d'un <label for=...> — certains
+// navigateurs/WebView Android n'ouvrent pas fiablement le sélecteur sinon.
+function declencherInput(id) {
+  g(id).click();
+}
+g('inputCamera').addEventListener('change', e => handleFileSelected(e.target.files[0]));
+g('inputFichier').addEventListener('change', e => handleFileSelected(e.target.files[0]));
+
+function handleFileSelected(file) {
+  if (!file) return;
+
+  const typeAccepte = file.type.startsWith('image/') || file.type === 'application/pdf';
+  if (!typeAccepte) {
+    alert('Seules les photos et les PDF sont acceptés pour un document médical.\n\nFichier choisi : ' + (file.type || 'type inconnu'));
+    return;
+  }
+
+  pendingFile = file;
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    pendingBase64 = reader.result; // data:...;base64,....
+
+    g('analyzeBox').style.display = 'block';
+    g('analyzeForm').style.display = 'none';
+    g('analyzeStatus').style.display = 'flex';
+    g('analyzeStatus').innerHTML = '<div class="spinner"></div> Analyse en cours…';
+
+    if (file.type.startsWith('image/')) {
+      g('analyzePreview').src = pendingBase64;
+      g('analyzePreview').style.display = 'block';
+    } else {
+      g('analyzePreview').style.display = 'none';
+    }
+
+    g('analyzeBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    pendingResultats = null;
+    let categorieDetectee, specialiteDetectee, typeCrDetectee;
+    if (preselectCategorie) {
+      // Venu de "Mes cartes" ou de la grille "Spécialités" : pas besoin d'appeler l'IA
+      categorieDetectee = preselectCategorie;
+      specialiteDetectee = preselectSpecialite || 'autre_spe';
+      typeCrDetectee = 'autre_cr';
+      preselectCategorie = null;
+      preselectSpecialite = null;
+    } else {
+      const result = await classifierDocument(pendingBase64, file.type);
+      categorieDetectee = result.categorie;
+      specialiteDetectee = result.specialite;
+      typeCrDetectee = result.typeCr;
+      if (result.personne) g('fieldPersonne').value = result.personne;
+    }
+
+    // Bilan sanguin détecté + clé API disponible : on extrait aussi les
+    // résultats chiffrés pour pouvoir en suivre l'évolution dans le temps.
+    if (categorieDetectee === 'analyse' && cleApiClaudeStockee()) {
+      g('analyzeStatus').innerHTML = '<div class="spinner"></div> Lecture des résultats du bilan…';
+      try {
+        pendingResultats = await extraireResultatsAnalyse(pendingBase64, file.type, cleApiClaudeStockee());
+      } catch (e) {
+        console.error('Extraction des résultats de bilan impossible :', e);
+        pendingResultats = null;
+      }
+    }
+
+    g('analyzeStatus').style.display = 'none';
+    g('analyzeForm').style.display = 'block';
+    buildCategorySelect(g('fieldCategorie'), categorieDetectee);
+    buildSpecialiteSelect(g('fieldSpecialite'), specialiteDetectee);
+    buildTypeCrSelect(g('fieldTypeCr'), typeCrDetectee);
+    toggleSpecialiteField();
+    let titreBase;
+    if (categorieDetectee === 'ordonnance') {
+      titreBase = 'Ordonnance — ' + SPECIALITES[specialiteDetectee];
+    } else if (categorieDetectee === 'compterendu') {
+      titreBase = TYPES_COMPTE_RENDU[typeCrDetectee];
+    } else {
+      titreBase = CATEGORIES[categorieDetectee]?.label || '';
+    }
+    g('fieldTitre').value = titreBase;
+    g('fieldDate').value = new Date().toISOString().split('T')[0];
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Clé API Claude (scan IA en direct depuis le navigateur) ───
+// Utile quand l'app est hébergée sur GitHub Pages, qui ne peut pas exécuter
+// la fonction serveur Netlify (/.netlify/functions/classify-document). La
+// clé n'est stockée que dans le localStorage de cet appareil ; elle n'est
+// jamais envoyée ailleurs qu'à l'API officielle d'Anthropic.
+function cleApiClaudeStockee() {
+  return localStorage.getItem('medidoc_cle_api_claude') || '';
+}
+function enregistrerCleApiClaude() {
+  const cle = g('cleApiClaudeInput').value.trim();
+  if (!cle) { alert('Merci de saisir une clé API.'); return; }
+  localStorage.setItem('medidoc_cle_api_claude', cle);
+  g('cleApiClaudeInput').value = '';
+  afficherToast({ icone: '✅', titre: 'Clé API enregistrée', texte: 'Le scan IA utilisera désormais cette clé.' });
+  majStatutCleApiClaude();
+}
+function supprimerCleApiClaude() {
+  localStorage.removeItem('medidoc_cle_api_claude');
+  g('cleApiClaudeInput').value = '';
+  afficherToast({ icone: '🗑️', titre: 'Clé API retirée', texte: 'Le scan repassera par la fonction serveur si disponible.' });
+  majStatutCleApiClaude();
+}
+function majStatutCleApiClaude() {
+  const el = g('cleApiClaudeStatut');
+  if (!el) return;
+  const cle = cleApiClaudeStockee();
+  const derniereErreur = localStorage.getItem('medidoc_derniere_erreur_scan');
+  let html = cle ? `✅ Clé enregistrée (…${cle.slice(-4)})` : '⚪ Aucune clé enregistrée — scan via le serveur Netlify';
+  if (derniereErreur) {
+    html += `<div style="color:#B91C1C;font-weight:700;margin-top:8px">⚠️ Dernier scan échoué : ${derniereErreur}</div>`;
+  }
+  el.innerHTML = html;
+  el.style.color = cle ? '#16A34A' : 'var(--muted)';
+}
+
+async function classifierDocumentAvecCleAPI(base64Data, mimeType, cle) {
+  const donneesBrutes = base64Data.split(',')[1]; // enlève le préfixe "data:...;base64,"
+  const estPdf = mimeType === 'application/pdf';
+  const blocFichier = estPdf
+    ? { type: 'document', source: { type: 'base64', media_type: mimeType, data: donneesBrutes } }
+    : { type: 'image', source: { type: 'base64', media_type: mimeType, data: donneesBrutes } };
+
+  const descCategories = Object.entries(CATEGORIES).map(([k, c]) => `  • "${k}" = ${c.label}`).join('\n');
+
+  const prompt = `Tu es un assistant qui classe des documents médicaux français. Analyse ce document et réponds UNIQUEMENT avec un objet JSON, sans texte autour et sans balises markdown, au format exact :
+{"categorie": "...", "specialite": "...", "typeCompteRendu": "...", "personne": "..."}
+
+CATÉGORIE — choisis la valeur la plus précise parmi :
+${descCategories}
+Repères pour ne pas confondre les catégories proches :
+- "ordonnance" = prescription du médecin : liste de médicaments/soins/examens PRESCRITS, à venir. Contient presque toujours le mot "Prescription" ou "Ordonnance", des noms de médicaments avec posologie (ex : "1 comprimé matin et soir"), et une signature de médecin. C'est une instruction pour la suite, pas un résultat.
+- "compterendu" = rapport RÉDIGÉ décrivant les CONSTATATIONS ou conclusions d'un examen déjà réalisé (texte en paragraphes : "Conclusion :", "Résultat de l'examen :"). Si le document accompagne une IRM/scanner/radio/écho sous forme de texte médical interprétatif (pas des images), classe-le "compterendu", pas "irm"/"scanner"/"radio"/"echo" (ces dernières catégories sont pour les IMAGES d'examen elles-mêmes).
+- "analyse" = résultats chiffrés d'un laboratoire (tableau de valeurs biologiques, sang/urine).
+- "vitale"/"mutuelle" = carte d'assuré (Carte Vitale, carte de mutuelle), pas un document médical.
+
+SPÉCIALITÉ — ne s'applique que si categorie = "ordonnance" (sinon mets "autre_spe"). Identifie le médecin prescripteur d'après l'en-tête/le tampon/la signature (nom, titre, spécialité affichée). Valeurs possibles : ${Object.keys(SPECIALITES).join(', ')}
+
+TYPE DE COMPTE-RENDU — ne s'applique que si categorie = "compterendu" (sinon mets "autre_cr"). Valeurs possibles : ${Object.keys(TYPES_COMPTE_RENDU).join(', ')}
+
+PERSONNE — le document est-il au nom d'un homme ou d'une femme ? Regarde la civilité du PATIENT (pas du médecin) écrite sur le document : "M.", "Monsieur" → "monsieur" ; "Mme", "Madame" → "madame". Si la civilité n'est pas identifiable avec certitude, mets "inconnu".`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': cle,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 300,
+      messages: [{ role: 'user', content: [blocFichier, { type: 'text', text: prompt }] }]
+    })
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Erreur API Claude (${res.status}) ${detail}`);
+  }
+  const data = await res.json();
+  const texte = (data.content || []).map(b => b.text || '').join('').trim();
+  const nettoye = texte.replace(/```json|```/g, '').trim();
+  return JSON.parse(nettoye);
+}
+
+// ─── Extraction des résultats chiffrés d'un bilan sanguin (pour le
+// tableau d'évolution) — n'est appelée que si une clé API est configurée.
+async function extraireResultatsAnalyse(base64Data, mimeType, cle) {
+  const donneesBrutes = base64Data.split(',')[1];
+  const estPdf = mimeType === 'application/pdf';
+  const blocFichier = estPdf
+    ? { type: 'document', source: { type: 'base64', media_type: mimeType, data: donneesBrutes } }
+    : { type: 'image', source: { type: 'base64', media_type: mimeType, data: donneesBrutes } };
+
+  const prompt = `Tu es un assistant qui extrait les résultats chiffrés d'un bilan sanguin. Réponds UNIQUEMENT avec un tableau JSON, sans texte autour et sans balises markdown, au format exact :
+[{"parametre": "Hémoglobine", "valeur": 13.5, "unite": "g/dL", "min": 12, "max": 16}]
+
+Règles :
+- "parametre" : nom court et standard du paramètre biologique (ex : "Hémoglobine", "Glycémie à jeun", "Cholestérol total", "Créatinine", "Leucocytes"...). Utilise toujours la même orthographe pour le même paramètre, pour permettre de comparer plusieurs bilans entre eux.
+- "valeur" : la valeur mesurée, en nombre uniquement (pas de texte, pas d'unité). Ignore ce paramètre si la valeur n'est pas clairement numérique.
+- "unite" : l'unité telle qu'affichée sur le document.
+- "min" et "max" : bornes de la plage normale/usuelle si indiquées sur le document, sinon null.
+- Limite-toi aux paramètres réellement présents sur ce document (pas d'invention), maximum 40.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': cle,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: 1500,
+      messages: [{ role: 'user', content: [blocFichier, { type: 'text', text: prompt }] }]
+    })
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Erreur API Claude (${res.status}) ${detail}`);
+  }
+  const data = await res.json();
+  const texte = (data.content || []).map(b => b.text || '').join('').trim();
+  const nettoye = texte.replace(/```json|```/g, '').trim();
+  const resultats = JSON.parse(nettoye);
+  if (!Array.isArray(resultats)) return null;
+  return resultats.filter(r => r && r.parametre && typeof r.valeur === 'number');
+}
+
+// ─── Classification IA (clé API directe si configurée, sinon fonction
+// serveur Netlify — clé jamais exposée côté client dans ce second cas) ───
+async function classifierDocument(base64Data, mimeType) {
+  const cle = cleApiClaudeStockee();
+  if (cle) {
+    try {
+      const resultat = await classifierDocumentAvecCleAPI(base64Data, mimeType, cle);
+      localStorage.removeItem('medidoc_derniere_erreur_scan');
+      const categorie = (resultat.categorie && CATEGORIES[resultat.categorie]) ? resultat.categorie : 'autre';
+      const specialite = (resultat.specialite && SPECIALITES[resultat.specialite]) ? resultat.specialite : 'autre_spe';
+      const typeCr = (resultat.typeCompteRendu && TYPES_COMPTE_RENDU[resultat.typeCompteRendu]) ? resultat.typeCompteRendu : 'autre_cr';
+      const personne = (resultat.personne === 'monsieur' || resultat.personne === 'madame') ? resultat.personne : null;
+      return { categorie, specialite, typeCr, personne };
+    } catch (e) {
+      console.error('Classification via clé API impossible :', e);
+      localStorage.setItem('medidoc_derniere_erreur_scan', (e && e.message) ? e.message : String(e));
+      afficherToast({ icone: '⚠️', titre: 'Scan IA indisponible', texte: 'Vérifiez la clé API dans Réglages. Classement manuel en attendant.' });
+      return { categorie: 'autre', specialite: 'autre_spe', typeCr: 'autre_cr', personne: null };
+    }
+  }
+  localStorage.removeItem('medidoc_derniere_erreur_scan');
+
+  try {
+    const res = await fetch('/.netlify/functions/classify-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: base64Data,
+        mimeType,
+        categories: Object.keys(CATEGORIES),
+        specialites: Object.keys(SPECIALITES),
+        typesCompteRendu: Object.keys(TYPES_COMPTE_RENDU)
+      })
+    });
+    if (!res.ok) throw new Error('Erreur serveur');
+    const data = await res.json();
+    const categorie = (data.categorie && CATEGORIES[data.categorie]) ? data.categorie : 'autre';
+    const specialite = (data.specialite && SPECIALITES[data.specialite]) ? data.specialite : 'autre_spe';
+    const typeCr = (data.typeCompteRendu && TYPES_COMPTE_RENDU[data.typeCompteRendu]) ? data.typeCompteRendu : 'autre_cr';
+    return { categorie, specialite, typeCr, personne: null };
+  } catch (e) {
+    console.error('Classification impossible :', e);
+    return { categorie: 'autre', specialite: 'autre_spe', typeCr: 'autre_cr', personne: null }; // repli silencieux : l'utilisateur pourra corriger manuellement
+  }
+}
+
+function annulerAjout() {
+  pendingFile = null;
+  pendingBase64 = null;
+  pendingResultats = null;
+  preselectCategorie = null;
+  g('analyzeBox').style.display = 'none';
+  g('inputCamera').value = '';
+  g('inputFichier').value = '';
+}
+
+async function enregistrerDocument() {
+  if (!pendingBase64) return;
+  const categorie = g('fieldCategorie').value;
+  const doc = {
+    titre: g('fieldTitre').value.trim() || 'Document sans titre',
+    personne: g('fieldPersonne').value,
+    categorie,
+    specialite: categorie === 'ordonnance' ? g('fieldSpecialite').value : null,
+    typeCr: categorie === 'compterendu' ? g('fieldTypeCr').value : null,
+    dateExamen: g('fieldDate').value,
+    dateAjout: new Date().toISOString(),
+    mimeType: pendingFile.type,
+    fileName: pendingFile.name,
+    resultats: pendingResultats || null,
+    data: pendingBase64
+  };
+  await dbAdd(doc);
+
+  // Sauvegarde automatique : une copie du fichier part immédiatement dans
+  // le dossier "Téléchargements" du téléphone, un espace totalement séparé
+  // du stockage de l'app. Même si le cache du navigateur est vidé plus
+  // tard, cette copie reste intacte — c'est la vraie protection.
+  if (sauvegardeAutoActive()) {
+    sauvegarderCopieDocument(doc);
+  }
+
+  annulerAjout();
+  await chargerDocuments();
+  goToView('documents');
+}
+
+function sauvegardeAutoActive() {
+  return localStorage.getItem('medidoc_sauvegarde_auto') !== 'off';
+}
+
+function toggleSauvegardeAuto() {
+  const actif = g('sauvegardeAutoToggle').checked;
+  localStorage.setItem('medidoc_sauvegarde_auto', actif ? 'on' : 'off');
+}
+
+function initSauvegardeAutoToggle() {
+  const el = g('sauvegardeAutoToggle');
+  if (el) el.checked = sauvegardeAutoActive();
+}
+
+function sauvegarderCopieDocument(doc) {
+  try {
+    const ext = (doc.mimeType.split('/')[1] || 'bin').replace('jpeg', 'jpg');
+    const nomSur = (doc.titre || 'document').replace(/[^a-z0-9]/gi, '_');
+    const a = document.createElement('a');
+    a.href = doc.data;
+    a.download = `MediDoc_${nomSur}_${Date.now()}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (e) {
+    console.error('Sauvegarde automatique impossible :', e);
+  }
+}
+
+// ─── Chargement + rendu ───
+async function chargerDocuments() {
+  try {
+    allDocs = await dbGetAll();
+  } catch (e) {
+    console.error('Impossible de charger les documents :', e);
+    afficherToast({ icone: '⚠️', titre: 'Erreur de stockage local', texte: "Le navigateur a bloqué l'accès au stockage. Réessayez, ou redémarrez l'app." });
+    allDocs = allDocs || [];
+  }
+  // Classement par date de soin (dateExamen), du plus récent au plus ancien.
+  // Si un document n'a pas de date de soin renseignée, on se replie sur sa
+  // date d'ajout pour qu'il garde une position cohérente dans la liste.
+  allDocs.sort((a, b) => new Date(b.dateExamen || b.dateAjout) - new Date(a.dateExamen || a.dateAjout));
+  updateStats();
+}
+
+function updateStats() {
+  g('statTotal').textContent = allDocs.length;
+  g('statCategories').textContent = new Set(allDocs.map(d => d.categorie)).size;
+  const now = new Date();
+  const ceMois = allDocs.filter(d => {
+    const dd = new Date(d.dateAjout);
+    return dd.getMonth() === now.getMonth() && dd.getFullYear() === now.getFullYear();
+  }).length;
+  g('statMois').textContent = ceMois;
+}
+
+function renderDocuments() {
+  renderCardsQuick();
+
+  // Filtre transversal par spécialiste (toutes catégories confondues) :
+  // prioritaire sur les filtres catégorie/personne habituels tant qu'il est actif.
+  const banner = g('filtreSpecialiteBanner');
+  if (filtreSpecialiteGlobal) {
+    const docsSpe = allDocs.filter(d => d.specialite === filtreSpecialiteGlobal);
+    banner.style.display = 'flex';
+    banner.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#EFF6FF;border-radius:10px;margin-bottom:10px';
+    banner.innerHTML = `<span style="font-size:13px;font-weight:800;color:var(--primary)">${iconeSpecialite(filtreSpecialiteGlobal)} ${SPECIALITES[filtreSpecialiteGlobal] || ''} — ${docsSpe.length} document(s)</span>
+      <button onclick="effacerFiltreSpecialiteGlobal()" style="border:none;background:#fff;border-radius:8px;padding:6px 10px;font-weight:800;color:var(--muted);cursor:pointer">✕ Effacer</button>`;
+    g('personneRow').innerHTML = '';
+    g('filterRow').innerHTML = '';
+    g('specialiteRow').style.display = 'none';
+    renderDocGrid('docGrid', docsSpe);
+    g('emptyState').style.display = allDocs.length === 0 ? 'block' : 'none';
+    g('evolutionBtnBox').style.display = 'none';
+    return;
+  }
+  banner.style.display = 'none';
+
+  const personnes = ['tous', ...Object.keys(PERSONNES)];
+  g('personneRow').innerHTML = personnes.map(p => {
+    const label = p === 'tous' ? '👥 Tous' : PERSONNES[p].icon + ' ' + PERSONNES[p].label;
+    return `<div class="filter-chip ${p === currentPersonne ? 'active' : ''}" onclick="setPersonne('${p}')">${label}</div>`;
+  }).join('');
+
+  const cats = ['tous', ...Object.keys(CATEGORIES)];
+  g('filterRow').innerHTML = cats.map(c => {
+    const label = c === 'tous' ? '📚 Tous' : CATEGORIES[c].icon + ' ' + CATEGORIES[c].label;
+    return `<div class="filter-chip ${c === currentFilter ? 'active' : ''}" onclick="setFilter('${c}')">${label}</div>`;
+  }).join('');
+
+  // Sous-filtre par spécialiste (toutes catégories sauf Carte Vitale/Mutuelle,
+  // qui n'ont pas de spécialiste associé) ou par type d'examen (comptes-rendus)
+  let specialiteRow = g('specialiteRow');
+  const catsAdmin = ['vitale', 'mutuelle'];
+  if (currentFilter === 'compterendu') {
+    const typesPresents = new Set(allDocs.filter(d => d.categorie === 'compterendu').map(d => d.typeCr || 'autre_cr'));
+    const types = ['toutes', ...Object.keys(TYPES_COMPTE_RENDU).filter(t => typesPresents.has(t))];
+    specialiteRow.style.display = 'flex';
+    specialiteRow.innerHTML = types.map(t => {
+      const label = t === 'toutes' ? '📋 Tous' : TYPES_COMPTE_RENDU[t];
+      return `<div class="filter-chip ${t === currentSpecialite ? 'active' : ''}" onclick="setSpecialite('${t}')">${label}</div>`;
+    }).join('');
+  } else if (!catsAdmin.includes(currentFilter)) {
+    const docsBase = currentFilter === 'tous' ? allDocs : allDocs.filter(d => d.categorie === currentFilter);
+    const specsPresentes = new Set(docsBase.filter(d => d.specialite).map(d => d.specialite));
+    if (specsPresentes.size > 0) {
+      const specs = ['toutes', ...Object.keys(SPECIALITES).filter(s => specsPresentes.has(s))];
+      specialiteRow.style.display = 'flex';
+      specialiteRow.innerHTML = specs.map(s => {
+        const label = s === 'toutes' ? '🩺 Tous les spécialistes' : `${iconeSpecialite(s)} ${SPECIALITES[s]}`;
+        return `<div class="filter-chip ${s === currentSpecialite ? 'active' : ''}" onclick="setSpecialite('${s}')">${label}</div>`;
+      }).join('');
+    } else {
+      specialiteRow.style.display = 'none';
+      currentSpecialite = 'toutes';
+    }
+  } else {
+    specialiteRow.style.display = 'none';
+    currentSpecialite = 'toutes';
+  }
+
+  let docs = currentFilter === 'tous' ? allDocs : allDocs.filter(d => d.categorie === currentFilter);
+  if (currentPersonne !== 'tous') {
+    docs = docs.filter(d => d.personne === currentPersonne);
+  }
+  if (currentFilter === 'compterendu' && currentSpecialite !== 'toutes') {
+    docs = docs.filter(d => (d.typeCr || 'autre_cr') === currentSpecialite);
+  } else if (currentFilter !== 'compterendu' && currentSpecialite !== 'toutes') {
+    docs = docs.filter(d => d.specialite === currentSpecialite);
+  }
+  renderDocGrid('docGrid', docs);
+  g('emptyState').style.display = allDocs.length === 0 ? 'block' : 'none';
+  g('evolutionBtnBox').style.display = currentFilter === 'analyse' ? 'block' : 'none';
+}
+
+// "Mes cartes" : accès rapide à la carte Vitale et à la mutuelle, les
+// documents qu'on a le plus souvent besoin de retrouver dans l'urgence
+// (pharmacie, cabinet médical...).
+function renderCardsQuick() {
+  const cartes = [
+    { key: 'vitale',   label: 'Carte Vitale' },
+    { key: 'mutuelle', label: 'Mutuelle' }
+  ];
+  g('cardsQuick').innerHTML = cartes.map(c => {
+    const doc = allDocs.find(d => d.categorie === c.key);
+    if (doc && doc.mimeType.startsWith('image/')) {
+      return `<div class="card-quick filled" style="background-image:url('${doc.data}')" onclick="ouvrirViewer(${doc.id})">
+        <div class="overlay">${CATEGORIES[c.key].icon} ${c.label}</div>
+      </div>`;
+    }
+    if (doc) {
+      return `<div class="card-quick filled" style="background:linear-gradient(135deg,var(--primary-light),var(--primary))" onclick="ouvrirViewer(${doc.id})">
+        <div class="overlay">${CATEGORIES[c.key].icon} ${c.label}</div>
+      </div>`;
+    }
+    return `<div class="card-quick empty" onclick="ajoutRapideCategorie('${c.key}')">
+      <div class="plus">➕</div>
+      <div class="lbl">Ajouter ${c.label}</div>
+    </div>`;
+  }).join('');
+}
+
+// Lance directement l'ajout d'un document pré-catégorisé (depuis "Mes cartes")
+function ajoutRapideCategorie(cat) {
+  goToView('ajouter');
+  preselectCategorie = cat;
+  g('inputFichier').click();
+}
+
+// Lance l'ajout d'une ordonnance en pré-sélectionnant directement la spécialité
+// (depuis la grille "Spécialités reconnues" de la page d'accueil)
+function ajoutRapideSpecialite(spe) {
+  goToView('ajouter');
+  preselectCategorie = 'ordonnance';
+  preselectSpecialite = spe;
+  g('inputFichier').click();
+}
+
+function setFilter(cat) {
+  currentFilter = cat;
+  currentSpecialite = 'toutes';
+  renderDocuments();
+}
+
+function setPersonne(p) {
+  currentPersonne = p;
+  renderDocuments();
+}
+
+function setSpecialite(spe) {
+  currentSpecialite = spe;
+  renderDocuments();
+}
+
+// ─── Miniatures PDF (aperçu réel de la 1ère page pour identifier
+// le document d'un coup d'œil, au lieu de l'icône générique 📄) ───
+const pdfThumbCache = {};
+
+async function genererMiniaturesPdf(docs) {
+  if (!window['pdfjsLib']) return;
+  for (const d of docs) {
+    if (pdfThumbCache[d.id]) continue;
+    try {
+      const pdf = await pdfjsLib.getDocument({ url: d.data }).promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 0.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      pdfThumbCache[d.id] = canvas.toDataURL('image/jpeg', 0.7);
+      const el = document.getElementById('thumb-' + d.id);
+      if (el) el.outerHTML = `<img class="doc-thumb" id="thumb-${d.id}" src="${pdfThumbCache[d.id]}" alt="">`;
+    } catch (e) {
+      console.error('Miniature PDF impossible pour le document', d.id, e);
+    }
+  }
+}
+
+function renderDocGrid(gridId, docs) {
+  const grid = g(gridId);
+  if (docs.length === 0) {
+    grid.innerHTML = '';
+    return;
+  }
+  grid.innerHTML = docs.map(d => {
+    const cat = CATEGORIES[d.categorie] || CATEGORIES.autre;
+    const isImage = d.mimeType.startsWith('image/');
+    const isPdf = d.mimeType === 'application/pdf';
+    let thumb;
+    if (isImage) {
+      thumb = `<img class="doc-thumb" src="${d.data}" alt="">`;
+    } else if (isPdf && pdfThumbCache[d.id]) {
+      thumb = `<img class="doc-thumb" id="thumb-${d.id}" src="${pdfThumbCache[d.id]}" alt="">`;
+    } else if (isPdf) {
+      thumb = `<div class="doc-thumb" id="thumb-${d.id}">📄</div>`;
+    } else {
+      thumb = `<div class="doc-thumb">📄</div>`;
+    }
+    const dateAff = d.dateExamen ? formatDate(d.dateExamen) : formatDate(d.dateAjout);
+    const catLabel = (d.categorie === 'ordonnance' && d.specialite)
+      ? `${iconeSpecialite(d.specialite)} ${SPECIALITES[d.specialite] || cat.label}`
+      : (d.categorie === 'compterendu' && d.typeCr)
+      ? `${cat.icon} ${TYPES_COMPTE_RENDU[d.typeCr] || cat.label}`
+      : `${cat.icon} ${cat.label}`;
+    const personneIcon = d.personne && PERSONNES[d.personne] ? PERSONNES[d.personne].icon + ' ' : '';
+    return `<div class="doc-card" onclick="ouvrirViewer(${d.id})">
+      ${thumb}
+      <div class="doc-info">
+        <div class="doc-cat">${personneIcon}${catLabel}</div>
+        <div class="doc-date">${dateAff}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  genererMiniaturesPdf(docs.filter(d => d.mimeType === 'application/pdf' && !pdfThumbCache[d.id]));
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function renderRecherche() {
+  const q = (g('searchInput').value || '').toLowerCase();
+  const docs = allDocs.filter(d =>
+    d.titre.toLowerCase().includes(q) ||
+    (CATEGORIES[d.categorie]?.label || '').toLowerCase().includes(q)
+  );
+  renderDocGrid('searchGrid', docs);
+}
+
+// ─── Visionneuse ───
+// ─── Rendu PDF via pdf.js (dessine chaque page en image, sans dépendre
+// du lecteur PDF natif du navigateur — souvent bloqué/instable en WebView) ───
+if (window['pdfjsLib']) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function renderPdf(dataUrl, container) {
+  container.innerHTML = '<div class="pdf-status">Chargement du PDF…</div>';
+  try {
+    if (!window['pdfjsLib']) throw new Error('pdf.js indisponible');
+    const pdf = await pdfjsLib.getDocument({ url: dataUrl }).promise;
+    container.innerHTML = '';
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const scale = 1.5;
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      container.appendChild(canvas);
+    }
+    if (pdf.numPages === 0) {
+      container.innerHTML = '<div class="pdf-status">Ce document ne contient aucune page.</div>';
+    }
+  } catch (err) {
+    console.error('Erreur rendu PDF :', err);
+    container.style.display = 'none';
+    g('viewerNoPreviewTitre').textContent = 'Document PDF';
+    g('viewerNoPreview').style.display = 'block';
+  }
+}
+
+function ouvrirViewer(id) {
+  const doc = allDocs.find(d => d.id === id);
+  if (!doc) return;
+  viewerCurrentId = id;
+  g('viewerTitle').textContent = doc.titre;
+
+  const imgEl = g('viewerImg');
+  const pdfPagesEl = g('viewerPdfPages');
+  const noPreviewEl = g('viewerNoPreview');
+  imgEl.style.display = 'none';
+  imgEl.src = '';
+  pdfPagesEl.style.display = 'none';
+  pdfPagesEl.innerHTML = '';
+  noPreviewEl.style.display = 'none';
+
+  if (doc.mimeType.startsWith('image/')) {
+    imgEl.src = doc.data;
+    imgEl.style.display = 'block';
+  } else if (doc.mimeType === 'application/pdf') {
+    pdfPagesEl.style.display = 'block';
+    renderPdf(doc.data, pdfPagesEl);
+  } else {
+    g('viewerNoPreviewTitre').textContent = doc.titre;
+    noPreviewEl.style.display = 'block';
+  }
+
+  g('viewerModal').classList.add('open');
+}
+
+// L'affichage d'un PDF en ligne (iframe ou nouvel onglet) s'est révélé peu
+// fiable sur certains navigateurs/WebView Android : on télécharge donc
+// directement le fichier, une action déjà confirmée fiable dans l'app.
+function ouvrirPdfNouvelOnglet() {
+  telechargerDocument();
+}
+function fermerViewer() {
+  g('viewerModal').classList.remove('open');
+  viewerCurrentId = null;
+}
+
+// ─── Édition d'un document (désignation, date, nom du fichier) ───
+let editCurrentId = null;
+function ouvrirEdition() {
+  const doc = allDocs.find(d => d.id === viewerCurrentId);
+  if (!doc) return;
+  editCurrentId = doc.id;
+  g('editPersonne').value = doc.personne || 'madame';
+  g('editTitre').value = doc.titre || '';
+  buildSpecialiteSelect(g('editSpecialite'), doc.specialite || 'autre_spe');
+  g('editDate').value = doc.dateExamen || '';
+  g('editFileName').value = doc.fileName || '';
+  g('editModal').classList.add('open');
+}
+function fermerEdition() {
+  g('editModal').classList.remove('open');
+  editCurrentId = null;
+}
+async function enregistrerEdition() {
+  const doc = allDocs.find(d => d.id === editCurrentId);
+  if (!doc) return;
+  doc.personne = g('editPersonne').value;
+  doc.titre = g('editTitre').value.trim() || doc.titre;
+  doc.specialite = g('editSpecialite').value;
+  doc.dateExamen = g('editDate').value || doc.dateExamen;
+  doc.fileName = g('editFileName').value.trim() || doc.fileName;
+  await dbUpdate(doc);
+  await chargerDocuments();
+  renderDocuments();
+  if (viewerCurrentId === doc.id) g('viewerTitle').textContent = doc.titre;
+  fermerEdition();
+  afficherToast({ icone: '✅', titre: 'Document modifié', texte: doc.titre });
+}
+
+// ─── Suggestion de spécialiste selon le paramètre en anomalie ───
+// Association indicative, basée sur des règles générales (pas un diagnostic).
+// Comparaison insensible aux accents/majuscules par mots-clés inclus dans le nom du paramètre.
+const SUGGESTIONS_SPECIALITE = [
+  { motsClefs: ['glycemie', 'hba1c', 'insuline'], specialite: 'Endocrinologue / Diabétologue' },
+  { motsClefs: ['cholesterol', 'triglyceride', 'ldl', 'hdl'], specialite: 'Cardiologue' },
+  { motsClefs: ['creatinine', 'uree', 'dfg', 'clairance'], specialite: 'Néphrologue' },
+  { motsClefs: ['tsh', 't3', 't4', 'thyroid'], specialite: 'Endocrinologue' },
+  { motsClefs: ['transaminase', 'alat', 'asat', 'gamma gt', 'ggt', 'bilirubine', 'phosphatase alcaline'], specialite: 'Hépato-gastroentérologue' },
+  { motsClefs: ['hemoglobine', 'hematie', 'ferritine', 'fer serique', 'vgm'], specialite: 'Hématologue (ou médecin traitant en 1ère intention)' },
+  { motsClefs: ['leucocyte', 'lymphocyte', 'plaquette'], specialite: 'Hématologue (ou médecin traitant en 1ère intention)' },
+  { motsClefs: ['psa'], specialite: 'Urologue' },
+  { motsClefs: ['acide urique'], specialite: 'Rhumatologue' },
+  { motsClefs: ['vitamine d', 'calcium', 'phosphore'], specialite: 'Endocrinologue' },
+  { motsClefs: ['testosterone', 'oestrogene', 'progesterone', 'fsh', 'lh'], specialite: 'Endocrinologue / Gynécologue' },
+  { motsClefs: ['crp', 'vs ', 'vitesse de sedimentation'], specialite: 'Médecin traitant (marqueur d\'inflammation, cause à préciser)' }
+];
+function normaliserTexte(t) {
+  return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+function suggererSpecialite(nomParametre) {
+  const n = normaliserTexte(nomParametre);
+  const trouve = SUGGESTIONS_SPECIALITE.find(s => s.motsClefs.some(m => n.includes(m)));
+  return trouve ? trouve.specialite : null;
+}
+
+// ─── Tableau d'évolution des bilans sanguins ───
+// Compare les résultats extraits (doc.resultats) de tous les bilans de
+// sang disponibles, du plus ancien au plus récent, paramètre par
+// paramètre. Ne prend en compte que les documents où l'extraction IA a
+// fonctionné (nécessite une clé API configurée au moment de l'ajout).
+function ouvrirEvolution() {
+  let bilans = allDocs.filter(d => d.categorie === 'analyse' && Array.isArray(d.resultats) && d.resultats.length > 0);
+  if (currentPersonne !== 'tous') bilans = bilans.filter(d => d.personne === currentPersonne);
+  bilans = bilans.slice().sort((a, b) => new Date(a.dateExamen || a.dateAjout) - new Date(b.dateExamen || b.dateAjout));
+
+  const contenu = g('evolutionContenu');
+  if (bilans.length === 0) {
+    contenu.innerHTML = `<p style="font-size:13px;color:var(--muted);line-height:1.6">
+      Aucun résultat exploitable pour l'instant.<br><br>
+      Le tableau se remplit automatiquement à partir des bilans sanguins ajoutés <strong>après</strong> avoir renseigné une clé API dans Réglages (les résultats chiffrés sont alors lus et enregistrés à l'ajout du document).<br><br>
+      Les bilans déjà présents dans l'app doivent être réimportés (ou réanalysés) pour être pris en compte.
+    </p>`;
+  } else {
+    // Union de tous les paramètres rencontrés, dans l'ordre de première apparition
+    const parametres = [];
+    bilans.forEach(b => b.resultats.forEach(r => { if (!parametres.includes(r.parametre)) parametres.push(r.parametre); }));
+
+    const entetes = bilans.map(b => `<th>${formatDate(b.dateExamen || b.dateAjout)}</th>`).join('');
+    const lignes = parametres.map(param => {
+      let precedente = null;
+      const cellules = bilans.map(b => {
+        const r = b.resultats.find(x => x.parametre === param);
+        if (!r) { precedente = null; return '<td>—</td>'; }
+        let classe = 'evo-val-ok';
+        if (typeof r.min === 'number' && r.valeur < r.min) classe = 'evo-val-bas';
+        else if (typeof r.max === 'number' && r.valeur > r.max) classe = 'evo-val-haut';
+        let fleche = '';
+        if (precedente !== null) {
+          if (r.valeur > precedente) fleche = '<span class="evo-arrow">▲</span>';
+          else if (r.valeur < precedente) fleche = '<span class="evo-arrow">▼</span>';
+        }
+        precedente = r.valeur;
+        const unite = r.unite ? ` ${r.unite}` : '';
+        return `<td class="${classe}">${r.valeur}${unite}${fleche}</td>`;
+      }).join('');
+      return `<tr><td>${param}</td>${cellules}</tr>`;
+    }).join('');
+
+    contenu.innerHTML = `
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">🔴 au-dessus de la norme · 🟠 en-dessous · 🟢 dans la norme · ▲▼ évolution vs bilan précédent</p>
+      <div class="evo-wrap">
+        <table class="evo-table">
+          <thead><tr><th>Paramètre</th>${entetes}</tr></thead>
+          <tbody>${lignes}</tbody>
+        </table>
+      </div>
+      ${genererBlocAlertes(bilans[bilans.length - 1])}`;
+  }
+
+  g('evolutionModal').classList.add('open');
+}
+
+// Bloc "À surveiller" : liste les paramètres hors norme du dernier bilan
+// avec une piste de spécialiste. Purement indicatif — ne remplace pas un avis médical.
+function genererBlocAlertes(dernierBilan) {
+  const alertes = dernierBilan.resultats
+    .map(r => {
+      let anormal = null;
+      if (typeof r.min === 'number' && r.valeur < r.min) anormal = 'bas';
+      else if (typeof r.max === 'number' && r.valeur > r.max) anormal = 'haut';
+      if (!anormal) return null;
+      return { ...r, anormal, specialite: suggererSpecialite(r.parametre) };
+    })
+    .filter(Boolean);
+
+  if (alertes.length === 0) {
+    return `<div style="margin-top:14px;padding:12px 14px;background:#F0FDF4;border-radius:10px;font-size:12.5px;color:#16A34A;font-weight:700">✅ Aucun résultat hors norme sur le dernier bilan (${formatDate(dernierBilan.dateExamen || dernierBilan.dateAjout)}).</div>`;
+  }
+
+  const lignes = alertes.map(a => {
+    const sens = a.anormal === 'haut' ? 'au-dessus de la norme' : 'en-dessous de la norme';
+    const piste = a.specialite ? ` → <strong>${a.specialite}</strong>` : ' → à évoquer avec votre médecin traitant';
+    return `<div style="margin-bottom:8px;line-height:1.5"><strong>${a.parametre}</strong> : ${a.valeur}${a.unite ? ' ' + a.unite : ''} (${sens})${piste}</div>`;
+  }).join('');
+
+  return `<div style="margin-top:14px;padding:12px 14px;background:#FEF2F2;border-radius:10px;font-size:12.5px;color:var(--text)">
+    <div style="font-weight:800;color:#B91C1C;margin-bottom:10px">⚠️ À surveiller — dernier bilan du ${formatDate(dernierBilan.dateExamen || dernierBilan.dateAjout)}</div>
+    ${lignes}
+    <div style="margin-top:10px;font-size:11px;color:var(--muted);font-style:italic">Ces orientations sont indicatives (règles générales), et ne remplacent pas l'avis de votre médecin traitant.</div>
+  </div>`;
+}
+function fermerEvolution() {
+  g('evolutionModal').classList.remove('open');
+}
+function telechargerDocument() {
+  const doc = allDocs.find(d => d.id === viewerCurrentId);
+  if (!doc) return;
+  const nomFichier = doc.fileName || (doc.titre + '.jpg');
+  const a = document.createElement('a');
+  a.href = doc.data;
+  a.download = nomFichier;
+  a.click();
+
+  afficherToast({
+    thumb: doc.mimeType.startsWith('image/') ? doc.data : null,
+    icone: doc.mimeType.startsWith('image/') ? null : '📄',
+    titre: nomFichier,
+    texte: 'Enregistré dans le dossier "Téléchargements" de votre téléphone (app Fichiers)'
+  });
+}
+
+// Notification de confirmation avec aperçu du fichier concerné
+let toastTimeout = null;
+function afficherToast({ thumb, icone, titre, texte }) {
+  const el = g('toast');
+  const media = thumb
+    ? `<img class="toast-thumb" src="${thumb}" alt="">`
+    : `<span class="toast-ic">${icone || '✅'}</span>`;
+  el.innerHTML = `${media}<div class="toast-text"><b>${titre}</b>${texte}</div>`;
+  el.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => el.classList.remove('show'), 4000);
+}
+async function supprimerDocumentCourant() {
+  if (viewerCurrentId == null) return;
+  if (!confirm('Supprimer définitivement ce document ?')) return;
+  await dbDelete(viewerCurrentId);
+  fermerViewer();
+  await chargerDocuments();
+  renderDocuments();
+}
+
+// ─── Partage ───
+function partagerDocument() {
+  const doc = allDocs.find(d => d.id === viewerCurrentId);
+  if (!doc) return;
+
+  // Méthode privilégiée : le partage natif Android (Web Share API), qui
+  // propose WhatsApp, Gmail, SMS/Messages, Gemini, Drive... avec le fichier
+  // réellement joint — une seule méthode couvre toutes les apps installées.
+  if (navigator.share) {
+    tenterPartageNatif(doc);
+  } else {
+    ouvrirShareSheet();
+  }
+}
+
+async function tenterPartageNatif(doc) {
+  try {
+    const estPartageable = doc.mimeType.startsWith('image/') || doc.mimeType === 'application/pdf';
+    if (navigator.canShare && estPartageable) {
+      const blob = await (await fetch(doc.data)).blob();
+      const extension = doc.mimeType === 'application/pdf' ? '.pdf' : '.jpg';
+      const nomFichier = doc.fileName || (doc.titre + extension);
+      const file = new File([blob], nomFichier, { type: doc.mimeType });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: doc.titre,
+          text: `${doc.titre} — ${CATEGORIES[doc.categorie]?.label || ''}`
+        });
+        return;
+      }
+    }
+    // Repli : partage du titre seul si les fichiers ne sont pas supportés
+    await navigator.share({ title: doc.titre, text: doc.titre });
+  } catch (e) {
+    if (e.name !== 'AbortError') ouvrirShareSheet();
+  }
+}
+
+function ouvrirShareSheet() { g('shareSheet').classList.add('open'); }
+function fermerShareSheet() { g('shareSheet').classList.remove('open'); }
+
+function shareVia(target) {
+  const doc = allDocs.find(d => d.id === viewerCurrentId);
+  fermerShareSheet();
+  if (!doc) return;
+
+  if (target === 'native') {
+    if (navigator.share) tenterPartageNatif(doc);
+    else alert("Le partage natif n'est pas disponible sur ce navigateur. Utilisez le téléchargement puis joignez le fichier manuellement.");
+    return;
+  }
+
+  // Ces canaux ne permettent pas de joindre un fichier via un simple lien web
+  // (limitation du navigateur, pas de l'app) : on télécharge le document et
+  // on ouvre l'app cible avec un message prêt à l'emploi, à joindre à la main.
+  telechargerDocument();
+  const texte = encodeURIComponent(`${doc.titre} — document médical (${CATEGORIES[doc.categorie]?.label || ''}). Le fichier vient d'être téléchargé, merci de le joindre à ce message.`);
+
+  if (target === 'whatsapp') {
+    window.open('https://wa.me/?text=' + texte, '_blank');
+  } else if (target === 'email') {
+    window.location.href = 'mailto:?subject=' + encodeURIComponent(doc.titre) + '&body=' + texte;
+  } else if (target === 'sms') {
+    window.location.href = 'sms:?body=' + texte;
+  }
+}
+// ─── Réglages ───
+
+// Affiche la liste des spécialités avec, pour chacune, le nombre de
+// documents qui l'utilisent déjà et un bouton de suppression.
+// ─── Mes liens utiles (portails patients : imagerie, spécialistes...) ───
+const LIENS_PAR_DEFAUT = [
+  { id: 'lien_1', nom: 'Imagerie Clairval Marseille', url: 'https://hopital-prive-clairval-marseille.ramsaysante.fr/acces-dossier-imagerie' }
+];
+function chargerLiens() {
+  try {
+    const saved = localStorage.getItem('medidoc_liens');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Corrige l'URL du lien par défaut si elle correspond à l'ancienne version
+      const ancienne = 'https://imagerie-clairval.ramsaygds.fr/acces_dossier.php';
+      const lien1 = parsed.find(l => l.id === 'lien_1');
+      if (lien1 && lien1.url === ancienne) {
+        lien1.url = LIENS_PAR_DEFAUT[0].url;
+        localStorage.setItem('medidoc_liens', JSON.stringify(parsed));
+      }
+      return parsed;
+    }
+  } catch (e) {}
+  return [...LIENS_PAR_DEFAUT];
+}
+function sauvegarderLiens() {
+  localStorage.setItem('medidoc_liens', JSON.stringify(MES_LIENS));
+}
+let MES_LIENS = chargerLiens();
+
+function renderLiensList() {
+  const el = g('liensList');
+  if (!el) return;
+  if (MES_LIENS.length === 0) {
+    el.innerHTML = `<p style="font-size:12px;color:var(--muted)">Aucun lien enregistré pour l'instant.</p>`;
+    return;
+  }
+  el.innerHTML = MES_LIENS.map(l => `<div class="spe-row">
+    <div style="cursor:pointer" onclick="ouvrirLien('${l.id}')"><span class="spe-label">🔗 ${l.nom}</span></div>
+    <button onclick="supprimerLien('${l.id}')" title="Supprimer">🗑️</button>
+  </div>`).join('');
+}
+function ajouterLien() {
+  const nomInput = g('nouveauLienNom');
+  const urlInput = g('nouveauLienUrl');
+  const nom = nomInput.value.trim();
+  let url = urlInput.value.trim();
+  if (!nom || !url) { alert('Merci de renseigner un nom et un lien.'); return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  MES_LIENS.push({ id: 'lien_' + Date.now(), nom, url });
+  sauvegarderLiens();
+  nomInput.value = '';
+  urlInput.value = '';
+  renderLiensList();
+  renderLiensAccueil();
+}
+function supprimerLien(id) {
+  const lien = MES_LIENS.find(l => l.id === id);
+  if (!lien || !confirm(`Supprimer le lien "${lien.nom}" ?`)) return;
+  MES_LIENS = MES_LIENS.filter(l => l.id !== id);
+  sauvegarderLiens();
+  renderLiensList();
+  renderLiensAccueil();
+}
+function ouvrirLien(id) {
+  const lien = MES_LIENS.find(l => l.id === id);
+  if (lien) window.open(lien.url, '_blank');
+}
+
+// ─── Référence de dérivation (valve/shunt) par personne ───
+function chargerRefDerivation() {
+  try {
+    const saved = localStorage.getItem('medidoc_ref_derivation');
+    if (saved) return JSON.parse(saved);
+  } catch (e) {}
+  return { madame: '', monsieur: '' };
+}
+function sauvegarderRefDerivation() {
+  localStorage.setItem('medidoc_ref_derivation', JSON.stringify(REF_DERIVATION));
+}
+let REF_DERIVATION = chargerRefDerivation();
+
+function initRefDerivationInputs() {
+  g('refDerivationMadame').value = REF_DERIVATION.madame || '';
+  g('refDerivationMonsieur').value = REF_DERIVATION.monsieur || '';
+}
+function enregistrerRefDerivation() {
+  REF_DERIVATION.madame = g('refDerivationMadame').value.trim();
+  REF_DERIVATION.monsieur = g('refDerivationMonsieur').value.trim();
+  sauvegarderRefDerivation();
+  renderRefDerivationAccueil();
+  afficherToast({ icone: '✅', titre: 'Référence enregistrée', texte: 'Vos références de dérivation ont été mises à jour.' });
+}
+
+function renderSpecialitesList() {
+  const compteParSpecialite = {};
+  allDocs.forEach(d => {
+    if (d.categorie === 'ordonnance') {
+      const s = d.specialite || 'autre_spe';
+      compteParSpecialite[s] = (compteParSpecialite[s] || 0) + 1;
+    }
+  });
+
+  g('specialitesList').innerHTML = Object.entries(SPECIALITES).map(([key, label]) => {
+    const count = compteParSpecialite[key] || 0;
+    const protegee = key === SPECIALITE_PROTEGEE;
+    return `<div class="spe-row">
+      <div><span class="spe-label">${label}</span>${count > 0 ? `<span class="spe-count">(${count})</span>` : ''}</div>
+      <button ${protegee ? 'disabled' : ''} onclick="supprimerSpecialite('${key}')" title="${protegee ? 'Non supprimable' : 'Supprimer'}">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+function ajouterSpecialite() {
+  const input = g('nouvelleSpecialiteInput');
+  const label = input.value.trim();
+  if (!label) return;
+
+  const key = label.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève les accents
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+  if (!key || SPECIALITES[key]) {
+    alert('Cette spécialité existe déjà ou le nom est invalide.');
+    return;
+  }
+
+  SPECIALITES[key] = label;
+  sauvegarderSpecialites();
+  input.value = '';
+  renderSpecialitesList();
+  renderSpecialiteGridPreview();
+}
+
+async function supprimerSpecialite(key) {
+  if (key === SPECIALITE_PROTEGEE) return;
+
+  const enUsage = allDocs.filter(d => d.categorie === 'ordonnance' && (d.specialite || 'autre_spe') === key).length;
+  const message = enUsage > 0
+    ? `${enUsage} document(s) utilisent "${SPECIALITES[key]}". Les supprimer de la liste les reclassera en "Autre spécialiste". Continuer ?`
+    : `Supprimer la spécialité "${SPECIALITES[key]}" ?`;
+  if (!confirm(message)) return;
+
+  // Reclasse les documents concernés vers la spécialité protégée avant suppression
+  if (enUsage > 0) {
+    const docsAModifier = allDocs.filter(d => d.categorie === 'ordonnance' && (d.specialite || 'autre_spe') === key);
+    for (const d of docsAModifier) {
+      d.specialite = SPECIALITE_PROTEGEE;
+      await dbUpdate(d);
+    }
+    await chargerDocuments();
+  }
+
+  delete SPECIALITES[key];
+  sauvegarderSpecialites();
+  renderSpecialitesList();
+  renderSpecialiteGridPreview();
+}
+async function viderBase() {
+  if (!confirm('Supprimer TOUS les documents ? Cette action est irréversible.')) return;
+  await dbClear();
+  await chargerDocuments();
+  renderDocuments();
+}
+
+async function exporterToutesDonnees() {
+  if (allDocs.length === 0) { alert('Aucun document à exporter.'); return; }
+  const zip = new JSZip();
+  allDocs.forEach(d => {
+    const ext = d.mimeType.split('/')[1] || 'bin';
+    const base64Content = d.data.split(',')[1];
+    const safeName = (d.titre || 'document').replace(/[^a-z0-9]/gi, '_');
+    zip.file(`${CATEGORIES[d.categorie]?.label || 'Autre'}/${safeName}_${d.id}.${ext}`, base64Content, { base64: true });
+  });
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'MediDoc_export_' + new Date().toISOString().split('T')[0] + '.zip';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ─── Import ZIP (fichiers individuels) ───
+// Contrairement au JSON (restauration exacte avec toutes les métadonnées),
+// le ZIP ne contient que les fichiers rangés par dossier de catégorie : les
+// titres et catégories sont donc reconstitués du mieux possible à partir
+// des noms de fichiers et de dossiers.
+async function importerZIP(file) {
+  if (!file) return;
+  if (!window['JSZip']) { alert("La bibliothèque ZIP n'a pas pu être chargée."); return; }
+
+  let zip;
+  try {
+    zip = await JSZip.loadAsync(file);
+  } catch (e) {
+    alert("Ce fichier n'est pas un ZIP valide.");
+    return;
+  }
+
+  const entrees = Object.values(zip.files).filter(f => !f.dir);
+  if (entrees.length === 0) { alert('Ce fichier ZIP ne contient aucun document.'); return; }
+  if (!confirm(`Importer ${entrees.length} document(s) depuis ce ZIP ?\n\nIls seront ajoutés à vos documents actuels (pas de remplacement).`)) return;
+
+  // Retrouve la catégorie d'origine à partir du nom du dossier (les ZIP
+  // exportés depuis MediDoc rangent les fichiers par dossier de catégorie).
+  const labelVersCle = {};
+  Object.keys(CATEGORIES).forEach(k => { labelVersCle[CATEGORIES[k].label] = k; });
+
+  const MIME_PAR_EXT = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+    heic: 'image/heic', pdf: 'application/pdf'
+  };
+
+  let importes = 0;
+  const aujourdHui = new Date().toISOString().split('T')[0];
+  for (const entree of entrees) {
+    try {
+      const chemin = entree.name.split('/').filter(Boolean);
+      const nomFichier = chemin[chemin.length - 1];
+      const dossier = chemin.length > 1 ? chemin[0] : null;
+      const ext = (nomFichier.split('.').pop() || '').toLowerCase();
+      const mimeType = MIME_PAR_EXT[ext] || 'application/octet-stream';
+      const base64 = await entree.async('base64');
+      const titre = nomFichier.replace(/\.[^.]+$/, '').replace(/_\d+$/, '').replace(/_/g, ' ').trim() || 'Document importé';
+
+      const doc = {
+        titre,
+        personne: 'madame',
+        categorie: labelVersCle[dossier] || 'autre',
+        specialite: null,
+        typeCr: null,
+        dateExamen: aujourdHui,
+        dateAjout: new Date().toISOString(),
+        mimeType,
+        fileName: nomFichier,
+        data: `data:${mimeType};base64,${base64}`
+      };
+      await dbAdd(doc);
+      importes++;
+    } catch (e) {
+      console.error('Erreur import du fichier', entree.name, e);
+    }
+  }
+
+  g('inputImportZIP').value = '';
+  await chargerDocuments();
+  renderDocuments();
+
+  afficherToast({
+    icone: '✅',
+    titre: 'Import ZIP terminé',
+    texte: `${importes} document(s) importé(s) — pensez à vérifier/corriger les dates et désignations via ✏️`
+  });
+}
+
+// ─── Sauvegarde / restauration complète (JSON) ───
+// Contrairement au ZIP (fichiers individuels, pratique pour consulter),
+// le JSON contient TOUT (catégories, spécialités, dates...) et permet une
+// restauration exacte de l'app après une perte de données (cache vidé,
+// changement de téléphone...).
+async function exporterJSON() {
+  if (allDocs.length === 0) { alert('Aucun document à exporter.'); return; }
+  const sauvegarde = {
+    app: 'MediDoc',
+    version: 1,
+    dateExport: new Date().toISOString(),
+    specialites: SPECIALITES,
+    documents: allDocs
+  };
+  const blob = new Blob([JSON.stringify(sauvegarde)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'MediDoc_sauvegarde_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+  afficherToast({
+    icone: '💾',
+    titre: 'Sauvegarde créée',
+    texte: `${allDocs.length} document(s) — gardez ce fichier en lieu sûr (Drive, email...) pour pouvoir tout restaurer plus tard`
+  });
+}
+
+function importerJSON(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    let sauvegarde;
+    try {
+      sauvegarde = JSON.parse(reader.result);
+    } catch (e) {
+      alert("Ce fichier n'est pas une sauvegarde MediDoc valide.");
+      return;
+    }
+    const documents = sauvegarde.documents;
+    if (!Array.isArray(documents) || documents.length === 0) {
+      alert('Aucun document trouvé dans ce fichier de sauvegarde.');
+      return;
+    }
+    if (!confirm(`Restaurer ${documents.length} document(s) depuis cette sauvegarde ?\n\nIls seront ajoutés à vos documents actuels (pas de remplacement).`)) return;
+
+    // Restaure aussi les spécialités personnalisées si présentes dans la sauvegarde
+    if (sauvegarde.specialites) {
+      SPECIALITES = { ...SPECIALITES, ...sauvegarde.specialites };
+      sauvegarderSpecialites();
+    }
+
+    let restaures = 0;
+    for (const doc of documents) {
+      const { id, ...docSansId } = doc; // laisse IndexedDB générer un nouvel identifiant
+      try {
+        await dbAdd(docSansId);
+        restaures++;
+      } catch (e) {
+        console.error('Erreur restauration document :', e);
+      }
+    }
+
+    g('inputImportJSON').value = '';
+    await chargerDocuments();
+    renderDocuments();
+
+    afficherToast({
+      icone: '✅',
+      titre: 'Restauration terminée',
+      texte: `${restaures} document(s) restauré(s) avec succès`
+    });
+  };
+  reader.readAsText(file);
+}
+
+// ─── Démarrage ───
+(async function start() {
+  renderCatGridPreview();
+  renderAccesRapideAccueil();
+
+  try {
+    await initDB();
+  } catch (e) {
+    // Léger délai puis nouvelle tentative — certains navigateurs Android
+    // ont besoin d'un court instant après l'ouverture de l'app avant que
+    // le stockage local soit pleinement disponible.
+    console.error('initDB a échoué, nouvelle tentative :', e);
+    await new Promise(r => setTimeout(r, 400));
+    await initDB();
+  }
+
+  await chargerDocuments();
+  renderDocuments();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  // Demande au navigateur de ne pas effacer automatiquement le stockage
+  // en cas de manque d'espace (protection supplémentaire, en plus de la
+  // sauvegarde automatique vers Téléchargements — ne remplace pas un
+  // "vider le cache" manuel, mais réduit les pertes accidentelles).
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
