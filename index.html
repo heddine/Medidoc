@@ -903,6 +903,31 @@ function ajoutManuel() {
   g('analyzeBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// Redimensionne une image avant de l'envoyer à l'IA (l'original stocké dans
+// l'app n'est pas touché). Les photos importées depuis la galerie sont
+// souvent beaucoup plus lourdes/haute résolution qu'une capture via
+// l'appareil photo du navigateur, ce qui peut faire échouer ou dégrader
+// l'analyse — on les ramène à une taille raisonnable avant l'envoi.
+function redimensionnerPourAnalyse(base64) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1568;
+      const { width, height } = img;
+      if (width <= maxDim && height <= maxDim) { resolve(base64); return; }
+      const ratio = Math.min(maxDim / width, maxDim / height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => resolve(base64); // en cas de souci, on retente avec l'original
+    img.src = base64;
+  });
+}
+
 function handleFileSelected(file) {
   if (!file) return;
 
@@ -936,6 +961,9 @@ function handleFileSelected(file) {
     pendingResultats = null;
     let categorieDetectee, specialiteDetectee, typeCrDetectee;
     let rdvDetecte = null;
+    const base64PourAnalyse = file.type.startsWith('image/')
+      ? await redimensionnerPourAnalyse(pendingBase64)
+      : pendingBase64;
     if (preselectCategorie) {
       // Venu de "Mes cartes" ou de la grille "Spécialités" : pas besoin d'appeler l'IA
       categorieDetectee = preselectCategorie;
@@ -944,7 +972,7 @@ function handleFileSelected(file) {
       preselectCategorie = null;
       preselectSpecialite = null;
     } else {
-      const result = await classifierDocument(pendingBase64, file.type);
+      const result = await classifierDocument(base64PourAnalyse, file.type);
       categorieDetectee = result.categorie;
       specialiteDetectee = result.specialite;
       typeCrDetectee = result.typeCr;
@@ -959,7 +987,7 @@ function handleFileSelected(file) {
     if (categorieDetectee === 'analyse' && cleApiClaudeStockee()) {
       g('analyzeStatus').innerHTML = '<div class="spinner"></div> Lecture des résultats du bilan…';
       try {
-        pendingResultats = await extraireResultatsAnalyse(pendingBase64, file.type, cleApiClaudeStockee());
+        pendingResultats = await extraireResultatsAnalyse(base64PourAnalyse, file.type, cleApiClaudeStockee());
       } catch (e) {
         console.error('Extraction des résultats de bilan impossible :', e);
         pendingResultats = null;
